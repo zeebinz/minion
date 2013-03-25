@@ -52,33 +52,46 @@ abstract class Kohana_Minion_Task {
 	 * Factory for loading minion tasks
 	 *
 	 * @param  array An array of command line options. It should contain the 'task' key
-	 *
-	 * @throws Kohana_Exception
-	 *
+	 * @throws Minion_Exception_InvalidTask
 	 * @return Minion_Task The Minion task
 	 */
 	public static function factory($options)
 	{
-		$task = Arr::get($options, 'task');
-		unset($options['task']);
-
-		// If we didn't get a valid task, generate the help
-		if ( ! is_string($task))
+		if (($task = Arr::get($options, 'task')) !== NULL)
 		{
+			unset($options['task']);
+		}
+		else if (($task = Arr::get($options, 0)) !== NULL)
+		{
+			// The first positional argument (aka 0) may be the task name
+			unset($options[0]);
+		}
+		else
+		{
+			// If we didn't get a valid task, generate the help
 			$task = 'help';
 		}
 
 		$class = Minion_Task::convert_task_to_class_name($task);
 
-		if ( ! in_array('Minion_Task', class_parents($class)))
+		if ( ! class_exists($class))
 		{
-			throw new Kohana_Exception(
+			throw new Minion_Exception_InvalidTask(
 				"Task ':task' is not a valid minion task",
-				array(':task' => get_class($task))
+				array(':task' => $class)
 			);
 		}
 
 		$class = new $class;
+
+		if ( ! $class instanceof Minion_Task)
+		{
+			throw new Minion_Exception_InvalidTask(
+				"Task ':task' is not a valid minion task",
+				array(':task' => $class)
+			);
+		}
+
 		$class->set_options($options);
 
 		// Show the help page for this task if requested
@@ -266,7 +279,7 @@ abstract class Kohana_Minion_Task {
 	{
 		if ( ! in_array($option, $this->_accepted_options))
 		{
-			$validation->error($key, 'minion_option');
+			$validation->error($option, 'minion_option');
 		}
 	}
 
